@@ -406,22 +406,39 @@
 
   // Temas confirmados por fecha. Se van añadiendo mes a mes.
   var TOPICS = {
-    '2026-09-22': 'Técnicas de edición',
-    '2026-09-25': 'Packaging efectivo'
+    '2026-09-22': 'Técnicas de edición'
+  };
+
+  // Fechas donde la clase recurrente de ese día de la semana NO ocurre (se movió o se canceló).
+  var CANCELLED_DATES = ['2026-09-25'];
+
+  // Clases puntuales fuera del patrón semanal habitual (ej. una clase reprogramada).
+  var EXTRA_EVENTS = {
+    '2026-09-28': [{
+      time:'18:00',
+      type:'mentoria',
+      mentor:'Ricardo Niño',
+      title:'Packaging efectivo',
+      pending:false
+    }]
   };
 
   function getEventsForDate(dateObj, key){
+    var events = [];
     var dow = dateObj.getDay(); // 2 = martes, 5 = viernes
-    if(dow !== 2 && dow !== 5) return null;
-    var mentor = dow === 2 ? 'Pablo' : 'Ricardo Niño';
-    var topic = TOPICS[key];
-    return [{
-      time:'18:00',
-      type:'mentoria',
-      mentor:mentor,
-      title: topic || 'Tema por confirmar',
-      pending: !topic
-    }];
+    if((dow === 2 || dow === 5) && CANCELLED_DATES.indexOf(key) === -1){
+      var mentor = dow === 2 ? 'Pablo' : 'Ricardo Niño';
+      var topic = TOPICS[key];
+      events.push({
+        time:'18:00',
+        type:'mentoria',
+        mentor:mentor,
+        title: topic || 'Tema por confirmar',
+        pending: !topic
+      });
+    }
+    if(EXTRA_EVENTS[key]) events = events.concat(EXTRA_EVENTS[key]);
+    return events.length ? events : null;
   }
 
   function pad(n){ return n < 10 ? '0'+n : ''+n; }
