@@ -13,6 +13,8 @@
     --text-faint:#5f5451;
     --accent:#e5262b;
     --accent-strong:#ff4348;
+    --special:#f0b73a;
+    --special-strong:#ffd873;
     --accent-ink:#ffffff;
   }
 
@@ -199,6 +201,13 @@
     background:var(--accent);
     color:var(--accent-ink);
   }
+  .day.special-day{
+    border-color:var(--special);
+    box-shadow:0 0 0 1px var(--special), 0 0 16px 1px rgba(240,183,58,0.35);
+  }
+  .day.special-day:hover{
+    box-shadow:0 0 0 1px var(--special-strong), 0 0 20px 2px rgba(240,183,58,0.5);
+  }
 
   .day-events{
     display:flex;
@@ -223,6 +232,11 @@
   .event-chip.mentoria{
     background:rgba(255,255,255,0.08);
     color:var(--text-muted);
+  }
+  .event-chip.especial{
+    background:rgba(240,183,58,0.22);
+    color:var(--special-strong);
+    font-weight:800;
   }
 
   /* ---------- modal ---------- */
@@ -301,10 +315,16 @@
   .session{
     display:flex;
     gap:12px;
-    padding:12px 0;
+    padding:12px 10px;
     border-bottom:1px solid var(--border);
+    border-radius:8px;
   }
   .session:last-child{ border-bottom:none; padding-bottom:0; }
+  .session.especial{
+    padding:12px 10px;
+    background:rgba(240,183,58,0.1);
+    box-shadow:0 0 0 1px rgba(240,183,58,0.4);
+  }
   .session-time{
     font-weight:800;
     font-size:14px;
@@ -328,6 +348,10 @@
   .session-badge.mentoria{
     background:rgba(255,255,255,0.09);
     color:var(--text-muted);
+  }
+  .session-badge.especial{
+    background:rgba(240,183,58,0.22);
+    color:var(--special-strong);
   }
   .session-title{
     font-size:14px;
@@ -412,13 +436,20 @@
   // Fechas donde la clase recurrente de ese día de la semana NO ocurre (se movió o se canceló).
   var CANCELLED_DATES = ['2026-09-25'];
 
-  // Clases puntuales fuera del patrón semanal habitual (ej. una clase reprogramada).
+  // Clases puntuales fuera del patrón semanal habitual (ej. una clase reprogramada o especial).
   var EXTRA_EVENTS = {
     '2026-09-28': [{
       time:'18:00',
       type:'mentoria',
       mentor:'Ricardo Niño',
       title:'Packaging efectivo',
+      pending:false
+    }],
+    '2026-10-13': [{
+      time:'17:00',
+      type:'especial',
+      mentor:'Mario Ruiz',
+      title:'Clase especial con Mario Ruiz',
       pending:false
     }]
   };
@@ -438,7 +469,9 @@
       });
     }
     if(EXTRA_EVENTS[key]) events = events.concat(EXTRA_EVENTS[key]);
-    return events.length ? events : null;
+    if(!events.length) return null;
+    events.sort(function(a, b){ return a.time.localeCompare(b.time); });
+    return events;
   }
 
   function pad(n){ return n < 10 ? '0'+n : ''+n; }
@@ -476,9 +509,9 @@
       modalBody.innerHTML = '<div class="empty-state">Sin clases programadas este día.<br>Añadiremos las sesiones en cuanto estén confirmadas.</div>';
     } else {
       modalBody.innerHTML = dayEvents.map(function(ev){
-        var badgeText = ev.type === 'masterclass' ? 'Masterclass en vivo' : 'Mentoría en vivo';
-        var badgeClass = ev.type === 'masterclass' ? '' : 'mentoria';
-        return '<div class="session">' +
+        var badgeText = ev.type === 'especial' ? '★ Clase especial' : (ev.type === 'masterclass' ? 'Masterclass en vivo' : 'Mentoría en vivo');
+        var badgeClass = ev.type === 'especial' ? 'especial' : (ev.type === 'masterclass' ? '' : 'mentoria');
+        return '<div class="session'+(ev.type === 'especial' ? ' especial' : '')+'">' +
           '<div class="session-time">'+ev.time+'</div>' +
           '<div class="session-body">' +
             '<span class="session-badge '+badgeClass+'">'+badgeText+'</span>' +
@@ -528,7 +561,8 @@
       var key = keyFor(m.year, m.month, dayNum);
       var dayEvents = getEventsForDate(dateObj, key);
 
-      cell.className = 'day' + (isPast ? ' past' : '') + (isToday ? ' today' : '');
+      var hasSpecial = dayEvents ? dayEvents.some(function(ev){ return ev.type === 'especial'; }) : false;
+      cell.className = 'day' + (isPast ? ' past' : '') + (isToday ? ' today' : '') + (hasSpecial ? ' special-day' : '');
       cell.tabIndex = 0;
       cell.setAttribute('role','button');
       cell.setAttribute('aria-label', 'Ver clases del ' + dayNum + ' de ' + m.label);
@@ -543,8 +577,8 @@
         evWrap.className = 'day-events';
         dayEvents.forEach(function(ev){
           var chip = document.createElement('div');
-          chip.className = 'event-chip' + (ev.type === 'mentoria' ? ' mentoria' : '');
-          chip.textContent = ev.time + ' · ' + ev.mentor;
+          chip.className = 'event-chip' + (ev.type === 'mentoria' ? ' mentoria' : '') + (ev.type === 'especial' ? ' especial' : '');
+          chip.textContent = (ev.type === 'especial' ? '★ ' : '') + ev.time + ' · ' + ev.mentor;
           evWrap.appendChild(chip);
         });
         cell.appendChild(evWrap);
