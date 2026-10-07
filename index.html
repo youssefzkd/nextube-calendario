@@ -186,6 +186,19 @@
     cursor:default;
     pointer-events:none;
   }
+  .day.weekday{
+    background:linear-gradient(180deg, #2b2121 0%, #221a1a 100%);
+    border-color:#4a3838;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .day.weekday:hover{
+    background:linear-gradient(180deg, #352828 0%, #2a2020 100%);
+    border-color:#6a5050;
+  }
+  .day.weekend{
+    background:#161212;
+    border-color:#261e1e;
+  }
   .day.past{ opacity:0.4; }
   .day.past .day-number{ color:var(--text-muted); }
 
@@ -232,6 +245,17 @@
   .event-chip.mentoria{
     background:rgba(255,255,255,0.08);
     color:var(--text-muted);
+  }
+  .event-chip.reset{
+    background:rgba(229,38,43,0.22);
+    color:#ffd0d1;
+  }
+  .event-chip .chip-sub{
+    display:block;
+    font-weight:500;
+    opacity:0.8;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .event-chip.especial{
     background:rgba(240,183,58,0.22);
@@ -454,18 +478,31 @@
     }]
   };
 
+  // Clases semanales. dow: 1=lunes ... 5=viernes. from/until: fechas incluidas (AAAA-MM-DD).
+  var RECURRING = [
+    { dow:2, time:'18:00', type:'mentoria', mentor:'Pablo Ramos',     until:'2026-10-06' },
+    { dow:5, time:'18:00', type:'mentoria', mentor:'Ricardo Niño',    until:'2026-10-06' },
+    { dow:1, time:'18:00', type:'mentoria', mentor:'Pablo Ramos',     from:'2026-10-07' },
+    { dow:4, time:'18:00', type:'mentoria', mentor:'Ricardo Niño',    from:'2026-10-07' },
+    { dow:3, time:'16:00', type:'reset',    mentor:'Montse Martinez', from:'2026-10-21', title:'Nextube Reset' }
+  ];
+
   function getEventsForDate(dateObj, key){
     var events = [];
-    var dow = dateObj.getDay(); // 2 = martes, 5 = viernes
-    if((dow === 2 || dow === 5) && CANCELLED_DATES.indexOf(key) === -1){
-      var mentor = dow === 2 ? 'Pablo' : 'Ricardo Niño';
-      var topic = TOPICS[key];
-      events.push({
-        time:'18:00',
-        type:'mentoria',
-        mentor:mentor,
-        title: topic || 'Tema por confirmar',
-        pending: !topic
+    var dow = dateObj.getDay();
+    if(CANCELLED_DATES.indexOf(key) === -1){
+      RECURRING.forEach(function(r){
+        if(r.dow !== dow) return;
+        if(r.from && key < r.from) return;
+        if(r.until && key > r.until) return;
+        var topic = r.title || TOPICS[key];
+        events.push({
+          time:r.time,
+          type:r.type,
+          mentor:r.mentor,
+          title: topic || 'Tema por confirmar',
+          pending: !topic
+        });
       });
     }
     if(EXTRA_EVENTS[key]) events = events.concat(EXTRA_EVENTS[key]);
@@ -509,14 +546,15 @@
       modalBody.innerHTML = '<div class="empty-state">Sin clases programadas este día.<br>Añadiremos las sesiones en cuanto estén confirmadas.</div>';
     } else {
       modalBody.innerHTML = dayEvents.map(function(ev){
-        var badgeText = ev.type === 'especial' ? '★ Clase especial' : (ev.type === 'masterclass' ? 'Masterclass en vivo' : 'Mentoría en vivo');
-        var badgeClass = ev.type === 'especial' ? 'especial' : (ev.type === 'masterclass' ? '' : 'mentoria');
+        var badgeText = ev.type === 'especial' ? '★ Clase especial' : ev.type === 'reset' ? 'Asesoría grupal' : (ev.type === 'masterclass' ? 'Masterclass en vivo' : 'Mentoría en vivo');
+        var badgeClass = ev.type === 'especial' ? 'especial' : (ev.type === 'masterclass' || ev.type === 'reset' ? '' : 'mentoria');
+        var personLine = ev.type === 'reset' ? ev.mentor + ' · Account manager' : 'Mentor: ' + ev.mentor;
         return '<div class="session'+(ev.type === 'especial' ? ' especial' : '')+'">' +
           '<div class="session-time">'+ev.time+'</div>' +
           '<div class="session-body">' +
             '<span class="session-badge '+badgeClass+'">'+badgeText+'</span>' +
             '<div class="session-title'+(ev.pending ? ' pending' : '')+'">'+ev.title+'</div>' +
-            '<div class="session-mentor">Mentor: '+ev.mentor+'</div>' +
+            '<div class="session-mentor">'+personLine+'</div>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -562,7 +600,9 @@
       var dayEvents = getEventsForDate(dateObj, key);
 
       var hasSpecial = dayEvents ? dayEvents.some(function(ev){ return ev.type === 'especial'; }) : false;
-      cell.className = 'day' + (isPast ? ' past' : '') + (isToday ? ' today' : '') + (hasSpecial ? ' special-day' : '');
+      var dow = dateObj.getDay();
+      var isWeekday = dow >= 1 && dow <= 5;
+      cell.className = 'day' + (isWeekday ? ' weekday' : ' weekend') + (isPast ? ' past' : '') + (isToday ? ' today' : '') + (hasSpecial ? ' special-day' : '');
       cell.tabIndex = 0;
       cell.setAttribute('role','button');
       cell.setAttribute('aria-label', 'Ver clases del ' + dayNum + ' de ' + m.label);
@@ -577,8 +617,16 @@
         evWrap.className = 'day-events';
         dayEvents.forEach(function(ev){
           var chip = document.createElement('div');
-          chip.className = 'event-chip' + (ev.type === 'mentoria' ? ' mentoria' : '') + (ev.type === 'especial' ? ' especial' : '');
-          chip.textContent = (ev.type === 'especial' ? '★ ' : '') + ev.time + ' · ' + ev.mentor;
+          chip.className = 'event-chip' + (ev.type === 'mentoria' ? ' mentoria' : '') + (ev.type === 'especial' ? ' especial' : '') + (ev.type === 'reset' ? ' reset' : '');
+          if(ev.type === 'reset'){
+            chip.textContent = ev.time + ' - ' + ev.title;
+            var sub = document.createElement('span');
+            sub.className = 'chip-sub';
+            sub.textContent = ev.mentor;
+            chip.appendChild(sub);
+          } else {
+            chip.textContent = (ev.type === 'especial' ? '★ ' : '') + ev.time + ' · ' + ev.mentor;
+          }
           evWrap.appendChild(chip);
         });
         cell.appendChild(evWrap);
